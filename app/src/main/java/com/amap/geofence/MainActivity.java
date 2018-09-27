@@ -1,17 +1,15 @@
 package com.amap.geofence;
 
+import android.app.Activity;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Message;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.amap.api.fence.GeoFence;
-import com.amap.api.fence.GeoFenceClient;
 import com.amap.api.location.AMapLocation;
 import com.amap.api.location.AMapLocationClient;
 import com.amap.api.location.AMapLocationClientOption;
@@ -19,17 +17,19 @@ import com.amap.api.location.AMapLocationListener;
 import com.amap.api.maps.AMap;
 import com.amap.api.maps.CameraUpdateFactory;
 import com.amap.api.maps.LocationSource;
-import com.amap.api.maps.SupportMapFragment;
+import com.amap.api.maps.MapView;
 import com.amap.api.maps.UiSettings;
-import com.amap.api.maps.model.BitmapDescriptor;
 import com.amap.api.maps.model.BitmapDescriptorFactory;
+import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.MyLocationStyle;
+import com.amap.api.maps.model.Polygon;
 
-import java.util.List;
+import java.lang.ref.WeakReference;
 
-public class MainActivity extends AppCompatActivity implements LocationSource, AMapLocationListener {
+public class MainActivity extends Activity implements LocationSource, AMapLocationListener {
 
     private AMap mAMap;
+    private MapView mapView;
     private AMapGeoFence mAMapGeoFence;
     private TextView mFenceResult;
     /**
@@ -46,6 +46,8 @@ public class MainActivity extends AppCompatActivity implements LocationSource, A
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mapView = (MapView) findViewById(R.id.map);
+        mapView.onCreate(savedInstanceState);// 此方法必须重写
         setUpMapIfNeeded();
         mFenceResult = (TextView) findViewById(R.id.tv_fenceList);
         mAMapGeoFence = new AMapGeoFence(this.getApplicationContext(), mAMap, handler);
@@ -65,8 +67,7 @@ public class MainActivity extends AppCompatActivity implements LocationSource, A
 
     private void setUpMapIfNeeded() {
         if (mAMap == null) {
-            mAMap = ((SupportMapFragment) getSupportFragmentManager()
-                    .findFragmentById(R.id.map)).getMap();
+            mAMap =mapView.getMap();
             UiSettings uiSettings = mAMap.getUiSettings();
             if (uiSettings != null) {
                 uiSettings.setRotateGesturesEnabled(false);
@@ -83,29 +84,63 @@ public class MainActivity extends AppCompatActivity implements LocationSource, A
         }
     }
 
-    Handler handler = new Handler() {
+    Handler handler = new MyHandler(this);
+//    {
+//        public void handleMessage(Message msg) {
+//            switch (msg.what) {
+//                case 0:
+////                    Toast.makeText(getApplicationContext(), "添加围栏成功",
+////                            Toast.LENGTH_SHORT).show();
+//                    mAMapGeoFence.drawFenceToMap();
+//                    break;
+//                case 1:
+//                    int errorCode = msg.arg1;
+//                    Toast.makeText(getApplicationContext(),
+//                            "添加围栏失败 " + errorCode, Toast.LENGTH_SHORT).show();
+//                    break;
+//                case 2:
+//                    String statusStr = (String) msg.obj;
+//                    Toast.makeText(getApplicationContext(), statusStr,
+//                            Toast.LENGTH_SHORT).show();
+//                    break;
+//                default:
+//                    break;
+//            }
+//        }
+//    };
+
+    private static class MyHandler extends Handler{
+        WeakReference<MainActivity> mMainActivityWeakReference;
+
+        public MyHandler(MainActivity mainActivity) {
+            mMainActivityWeakReference = new WeakReference<>(mainActivity);
+        }
+
+        @Override
         public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            MainActivity mainActivity = mMainActivityWeakReference.get();
             switch (msg.what) {
                 case 0:
 //                    Toast.makeText(getApplicationContext(), "添加围栏成功",
 //                            Toast.LENGTH_SHORT).show();
-                    mAMapGeoFence.drawFenceToMap();
+                    mainActivity.mAMapGeoFence.drawFenceToMap();
                     break;
                 case 1:
                     int errorCode = msg.arg1;
-                    Toast.makeText(getApplicationContext(),
+                    Toast.makeText(mainActivity.getApplicationContext(),
                             "添加围栏失败 " + errorCode, Toast.LENGTH_SHORT).show();
                     break;
                 case 2:
                     String statusStr = (String) msg.obj;
-                    Toast.makeText(getApplicationContext(), statusStr,
+                    Toast.makeText(mainActivity.getApplicationContext(), statusStr,
                             Toast.LENGTH_SHORT).show();
                     break;
                 default:
                     break;
             }
         }
-    };
+    }
 
     @Override
     public void onLocationChanged(AMapLocation amapLocation) {
@@ -150,4 +185,6 @@ public class MainActivity extends AppCompatActivity implements LocationSource, A
         }
         mlocationClient = null;
     }
+
+
 }

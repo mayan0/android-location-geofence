@@ -20,10 +20,9 @@
             android:visibility="gone" />
     </ScrollView>
 
-    <fragment
+    <com.amap.api.maps.MapView
         android:id="@+id/map"
         android:layout_above="@id/show_fence"
-        class="com.amap.api.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
