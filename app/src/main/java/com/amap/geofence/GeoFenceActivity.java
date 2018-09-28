@@ -20,18 +20,18 @@ import com.amap.api.maps.LocationSource;
 import com.amap.api.maps.MapView;
 import com.amap.api.maps.UiSettings;
 import com.amap.api.maps.model.BitmapDescriptorFactory;
-import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.MyLocationStyle;
-import com.amap.api.maps.model.Polygon;
+import com.amap.geofence.presenter.AMapGeoFence;
 
 import java.lang.ref.WeakReference;
+import java.util.List;
 
-public class MainActivity extends Activity implements LocationSource, AMapLocationListener {
+public class GeoFenceActivity extends Activity implements LocationSource, AMapLocationListener, View.OnClickListener {
 
     private AMap mAMap;
     private MapView mapView;
     private AMapGeoFence mAMapGeoFence;
-    private TextView mFenceResult;
+    private TextView mtv;
     /**
      * 用于显示当前的位置
      * <p>
@@ -49,19 +49,45 @@ public class MainActivity extends Activity implements LocationSource, AMapLocati
         mapView = (MapView) findViewById(R.id.map);
         mapView.onCreate(savedInstanceState);// 此方法必须重写
         setUpMapIfNeeded();
-        mFenceResult = (TextView) findViewById(R.id.tv_fenceList);
         mAMapGeoFence = new AMapGeoFence(this.getApplicationContext(), mAMap, handler);
     }
 
+
+    /**
+     * 方法必须重写
+     */
     @Override
     protected void onResume() {
         super.onResume();
+        mapView.onResume();
         setUpMapIfNeeded();
     }
 
+    /**
+     * 方法必须重写
+     */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mapView.onPause();
+    }
+
+    /**
+     * 方法必须重写
+     */
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        mapView.onSaveInstanceState(outState);
+    }
+
+    /**
+     * 方法必须重写
+     */
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mapView.onDestroy();
         mAMapGeoFence.removeAll();
     }
 
@@ -80,46 +106,34 @@ public class MainActivity extends Activity implements LocationSource, AMapLocati
             mAMap.setMyLocationEnabled(true);// 设置为true表示显示定位层并可触发定位，false表示隐藏定位层并不可触发定位，默认是false
             // 设置定位的类型为定位模式 ，可以由定位、跟随或地图根据面向方向旋转几种
             mAMap.setMyLocationType(AMap.LOCATION_TYPE_LOCATE);
-            mAMap.moveCamera(CameraUpdateFactory.zoomTo(13));
+            mAMap.moveCamera(CameraUpdateFactory.zoomTo(15));
         }
+        findViewById(R.id.check).setOnClickListener(this);
     }
 
     Handler handler = new MyHandler(this);
-//    {
-//        public void handleMessage(Message msg) {
-//            switch (msg.what) {
-//                case 0:
-////                    Toast.makeText(getApplicationContext(), "添加围栏成功",
-////                            Toast.LENGTH_SHORT).show();
-//                    mAMapGeoFence.drawFenceToMap();
-//                    break;
-//                case 1:
-//                    int errorCode = msg.arg1;
-//                    Toast.makeText(getApplicationContext(),
-//                            "添加围栏失败 " + errorCode, Toast.LENGTH_SHORT).show();
-//                    break;
-//                case 2:
-//                    String statusStr = (String) msg.obj;
-//                    Toast.makeText(getApplicationContext(), statusStr,
-//                            Toast.LENGTH_SHORT).show();
-//                    break;
-//                default:
-//                    break;
-//            }
-//        }
-//    };
+
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()){
+            case R.id.check:
+               List<String> result = mAMapGeoFence.checkLocationinfence();
+               Toast.makeText(GeoFenceActivity.this,"当前位置在围栏："+result.toString(),Toast.LENGTH_LONG).show();
+        }
+    }
+
 
     private static class MyHandler extends Handler{
-        WeakReference<MainActivity> mMainActivityWeakReference;
+        WeakReference<GeoFenceActivity> mMainActivityWeakReference;
 
-        public MyHandler(MainActivity mainActivity) {
+        public MyHandler(GeoFenceActivity mainActivity) {
             mMainActivityWeakReference = new WeakReference<>(mainActivity);
         }
 
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-            MainActivity mainActivity = mMainActivityWeakReference.get();
+            GeoFenceActivity mainActivity = mMainActivityWeakReference.get();
             switch (msg.what) {
                 case 0:
 //                    Toast.makeText(getApplicationContext(), "添加围栏成功",
@@ -147,13 +161,13 @@ public class MainActivity extends Activity implements LocationSource, AMapLocati
         if (mListener != null && amapLocation != null) {
             if (amapLocation != null && amapLocation.getErrorCode() == 0) {
                 mListener.onLocationChanged(amapLocation);// 显示系统小蓝点
+                mAMapGeoFence.setMyLocation(amapLocation);
 
             } else {
                 String errText = "定位失败," + amapLocation.getErrorCode() + ": "
                         + amapLocation.getErrorInfo();
                 Log.e("AmapErr", errText);
-                mFenceResult.setVisibility(View.VISIBLE);
-                mFenceResult.setText(errText);
+
             }
         }/**/
     }
@@ -173,7 +187,6 @@ public class MainActivity extends Activity implements LocationSource, AMapLocati
             mlocationClient.setLocationOption(mLocationOption);
             mlocationClient.startLocation();
         }
-
     }
 
     @Override

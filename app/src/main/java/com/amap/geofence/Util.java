@@ -6,9 +6,6 @@ import com.amap.api.maps.model.LatLng;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Created by ligen on 16/12/15.
- */
 public class Util {
 
     public static List<DPoint> toAMapGeoFenceList(String points) {

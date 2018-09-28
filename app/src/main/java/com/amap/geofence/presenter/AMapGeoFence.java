@@ -1,4 +1,4 @@
-package com.amap.geofence;
+package com.amap.geofence.presenter;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -14,15 +14,19 @@ import android.util.Log;
 import com.amap.api.fence.GeoFence;
 import com.amap.api.fence.GeoFenceClient;
 import com.amap.api.fence.GeoFenceListener;
+import com.amap.api.location.AMapLocation;
 import com.amap.api.location.DPoint;
 import com.amap.api.maps.AMap;
 import com.amap.api.maps.CameraUpdateFactory;
+import com.amap.api.maps.model.AMapGLOverlay;
 import com.amap.api.maps.model.Circle;
 import com.amap.api.maps.model.CircleOptions;
 import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.MarkerOptions;
 import com.amap.api.maps.model.Polygon;
 import com.amap.api.maps.model.PolygonOptions;
+import com.amap.geofence.R;
+import com.amap.geofence.Util;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -33,20 +37,28 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Created by ligen on 16/12/15.
- */
 public class AMapGeoFence implements GeoFenceListener {
     private String TAG = "AMapGeoFence";
     private GeoFenceClient mClientInAndStayAction;
     private GeoFenceClient mClientAllAction;
     private Context mContext;
     private AMap mAMap;
-    private ConcurrentMap mCustomEntitys;
+    private volatile ConcurrentMap<String, Object> mCustomEntitys = new ConcurrentHashMap<String, Object>();
     private Handler mHandler;
     private int mCustomID = 100;
+
+    public AMapLocation getMyLocation() {
+        return myLocation;
+    }
+
+    public void setMyLocation(AMapLocation myLocation) {
+        this.myLocation = myLocation;
+    }
+
+    private AMapLocation myLocation;
     // 记录已经添加成功的围栏
     private volatile ConcurrentMap<String, GeoFence> fenceMap = new ConcurrentHashMap<String, GeoFence>();
+
     // 地理围栏的广播action
     static final String GEOFENCE_BROADCAST_ACTION = "com.amap.geofence";
 
@@ -61,7 +73,6 @@ public class AMapGeoFence implements GeoFenceListener {
         mContext = context;
         mHandler = handler;
         mThreadPool = Executors.newCachedThreadPool();
-        mCustomEntitys = new ConcurrentHashMap<String, Object>();
         mAMap = amap;
         IntentFilter fliter = new IntentFilter(
                 ConnectivityManager.CONNECTIVITY_ACTION);
@@ -137,10 +148,9 @@ public class AMapGeoFence implements GeoFenceListener {
             polygonOption.strokeColor(mContext.getResources().getColor(R.color.stroke));
             polygonOption.strokeWidth(4);
             Polygon polygon = mAMap.addPolygon(polygonOption);
-            boolean s = ispointin( new LatLng(39.930975,116.329724),polygon);
-            Log.i("MY",String.valueOf(s));
             polygonList.add(polygon);
-            mCustomEntitys.put(fence.getFenceId(), polygonList);
+
+            mCustomEntitys.put(fence.getCustomId(), polygonList);
         }
     }
 
@@ -153,7 +163,7 @@ public class AMapGeoFence implements GeoFenceListener {
         DPoint dPoint = fence.getCenter();
         option.center(new LatLng(dPoint.getLatitude(), dPoint.getLongitude()));
         Circle circle = mAMap.addCircle(option);
-        mCustomEntitys.put(fence.getFenceId(), circle);
+        mCustomEntitys.put(fence.getCustomId(), circle);
     }
 
     public void drawFenceToMap() {
@@ -162,11 +172,8 @@ public class AMapGeoFence implements GeoFenceListener {
         while (iter.hasNext()) {
             Log.i(TAG, "-----------------------------------------------------1");
             Map.Entry entry = (Map.Entry) iter.next();
-            String key = (String) entry.getKey();
             GeoFence val = (GeoFence) entry.getValue();
-            if (!mCustomEntitys.containsKey(key)) {
-                Log.i(TAG, "-----------------------------------------------------2");
-                Log.i(TAG, "添加围栏:" + key);
+            if (!mCustomEntitys.containsKey(val.getCustomId())) {
                 drawFence(val);
             }
         }
@@ -254,7 +261,7 @@ public class AMapGeoFence implements GeoFenceListener {
                         Log.e(TAG, "离开围栏"+"---"+customid);
                         break;
                     case GeoFence.STATUS_STAYED:
-                        sb.append("停留在围栏内 ").append(fenceID);
+                        sb.append("停留在围栏内 ").append("---"+customid);
                         break;
                     default:
                         break;
@@ -269,11 +276,43 @@ public class AMapGeoFence implements GeoFenceListener {
     };
 
 
-    public boolean ispointin(LatLng point, Polygon polygon){
-        polygon.contains(point);
 
+    public List<String> checkLocationinfence(){
+        List<String> result = new ArrayList<>();
+        LatLng locpoint = new LatLng(getMyLocation().getLatitude(),getMyLocation().getLongitude());
 
-        return polygon.contains(point);
+//        for(Map.Entry<String, String> entry: map.entrySet()) {
+//            System.out.println("Key = " + entry.getKey() + ", Value = " + entry.getValue());
+//        }
+
+        for (String key : mCustomEntitys.keySet()){
+            boolean b = checkispointinfence(locpoint,mCustomEntitys.get(key));
+            if (b){
+                result.add(key);
+            }
+        }
+
+        return result;
     }
+
+    private boolean checkispointinfence(LatLng point, Object fence){
+        if (fence instanceof List){
+            List<Polygon> polygonList  = (List<Polygon>)fence;
+            for (Polygon polygon : polygonList){
+                if(polygon.contains(point)){
+                    return true;
+                }
+            }
+            return false;
+        }else if (fence instanceof Circle){
+            Circle circle = (Circle)fence;
+            return circle.contains(point);
+        }else if (fence instanceof Polygon){
+            Polygon polygon = (Polygon)fence;
+            return polygon.contains(point);
+        }
+        return false;
+    }
+
 
 }
